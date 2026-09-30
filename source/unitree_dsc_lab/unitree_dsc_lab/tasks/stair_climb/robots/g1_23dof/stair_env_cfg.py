@@ -273,14 +273,14 @@ class RewardsCfg:
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
-                joint_names=[".*_shoulder_.*_joint", ".*_elbow_joint", ".*_wrist_.*"],
+                joint_names=[".*_shoulder_.*_joint", ".*_elbow_.*_joint"],
             ),
         },
     )
     joint_deviation_waist = RewTerm(
         func=mdp.joint_deviation_l1,
         weight=-1.0,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist.*"])},
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["torso_joint"])},
     )
 
     # contact safety — penalize torso/arm hits with the staircase

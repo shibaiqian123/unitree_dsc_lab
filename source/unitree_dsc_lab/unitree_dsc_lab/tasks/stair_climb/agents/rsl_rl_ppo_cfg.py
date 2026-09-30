@@ -32,6 +32,8 @@ class BasePPORunnerCfg(RslRlOnPolicyRunnerCfg):
     """Stage-1 PPO runner cfg (paper §III-D)."""
 
     num_steps_per_env = 24
+    # Action clipping applied by RslRlVecEnvWrapper.
+    clip_actions = 1.0
     max_iterations = 6000
     save_interval = 100
     experiment_name = "stair_climb_g1_23dof"

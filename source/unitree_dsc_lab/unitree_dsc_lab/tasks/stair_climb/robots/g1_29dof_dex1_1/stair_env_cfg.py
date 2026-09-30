@@ -117,6 +117,12 @@ class RewardsCfg(BaseRewardsCfg):
         },
     )
 
+    joint_deviation_waist = RewTerm(
+        func=mdp.joint_deviation_l1,
+        weight=-1.0,
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["waist.*"])},
+    )
+
 
 @configclass
 class G129DofDex11StairClimbEnvCfg(BaseG1StairClimbEnvCfg):
