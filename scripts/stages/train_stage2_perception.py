@@ -18,6 +18,8 @@ from __future__ import annotations
 import argparse
 import sys
 
+from training_utils import add_logging_args, configure_runner_logging, create_log_dir, validate_logger_dependency
+
 # ---- 1. Parse args + launch Isaac Sim ----
 parser = argparse.ArgumentParser(description="Stage 2: supervised BEV encoder training.")
 parser.add_argument("--task", type=str, default="Unitree-G1-23dof-StairClimb-v0")
@@ -29,12 +31,14 @@ parser.add_argument("--batch_size", type=int, default=256)
 parser.add_argument("--sl_epochs_per_rollout", type=int, default=5)
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--logdir", type=str, default="logs/stage2")
+add_logging_args(parser)
 
 from isaaclab.app import AppLauncher  # noqa: E402
 
 AppLauncher.add_app_launcher_args(parser)
 args_cli, hydra_args = parser.parse_known_args()
 sys.argv = [sys.argv[0]] + hydra_args
+validate_logger_dependency(args_cli.logger)
 
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
@@ -58,6 +62,8 @@ def main() -> None:
     device = args_cli.device if hasattr(args_cli, "device") else "cuda:0"
 
     runner_cfg = BasePPORunnerCfg()
+    log_dir = create_log_dir(args_cli.logdir, args_cli.task, "stage2", args_cli.run_name)
+    configure_runner_logging(runner_cfg, args_cli, log_dir)
     train_cfg = to_rsl_rl_dict(runner_cfg)
 
     # Environment (same task, fewer envs for rollout collection)
@@ -65,9 +71,6 @@ def main() -> None:
     env_cfg.seed = args_cli.seed
     env = gym.make(args_cli.task, cfg=env_cfg)
     env = RslRlVecEnvWrapper(env, clip_actions=runner_cfg.clip_actions)
-
-    log_dir = os.path.join(args_cli.logdir, args_cli.task)
-    os.makedirs(log_dir, exist_ok=True)
 
     # Runner — load Stage 1 policy checkpoint, fresh encoder
     encoder = BEVStudentEncoder()
@@ -78,22 +81,25 @@ def main() -> None:
         log_dir=log_dir,
         device=device,
     )
-    # Load policy weights only (encoder is freshly initialised)
-    runner.load(args_cli.policy_ckpt, load_cfg={"actor": True, "critic": True, "optimizer": False})
+    try:
+        # Load policy weights only (encoder is freshly initialised)
+        runner.load(args_cli.policy_ckpt, load_cfg={"actor": True, "critic": True, "optimizer": False})
+        runner.logger.init_logging_writer()
+        runner.learn_stage2(
+            num_epochs=args_cli.epochs,
+            batch_size=args_cli.batch_size,
+            sl_epochs_per_rollout=args_cli.sl_epochs_per_rollout,
+        )
 
-    runner.learn_stage2(
-        num_epochs=args_cli.epochs,
-        batch_size=args_cli.batch_size,
-        sl_epochs_per_rollout=args_cli.sl_epochs_per_rollout,
-    )
-
-    # Save encoder-only checkpoint for Stage 3
-    encoder_path = os.path.join(log_dir, "encoder_best.pt")
-    runner.save(encoder_path)
-    print(f"[Stage 2] Encoder checkpoint saved to {encoder_path}")
-
-    env.close()
-    simulation_app.close()
+        # Save encoder checkpoint for Stage 3 while the external logger is active.
+        if not runner.logger.disable_logs:
+            encoder_path = os.path.join(log_dir, "encoder_best.pt")
+            runner.save(encoder_path)
+            print(f"[Stage 2] Encoder checkpoint saved to {encoder_path}")
+    finally:
+        runner.finish_logging()
+        env.close()
+        simulation_app.close()
 
 
 if __name__ == "__main__":

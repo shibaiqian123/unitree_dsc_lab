@@ -15,6 +15,8 @@ from __future__ import annotations
 import argparse
 import sys
 
+from training_utils import add_logging_args, configure_runner_logging, create_log_dir, validate_logger_dependency
+
 # ---- 1. Parse args + launch Isaac Sim (MUST happen before isaaclab imports) ----
 parser = argparse.ArgumentParser(description="Stage 1: PPO with privileged teacher z_t.")
 parser.add_argument("--task", type=str, default="Unitree-G1-23dof-StairClimb-v0")
@@ -25,12 +27,14 @@ parser.add_argument("--logdir", type=str, default="logs/stage1")
 parser.add_argument("--resume", action="store_true")
 parser.add_argument("--checkpoint", type=str, default=None)
 parser.add_argument("--disable_fabric", action="store_true", help="Disable Fabric for the simulation scene.")
+add_logging_args(parser)
 
 from isaaclab.app import AppLauncher  # noqa: E402
 
 AppLauncher.add_app_launcher_args(parser)
 args_cli, hydra_args = parser.parse_known_args()
 sys.argv = [sys.argv[0]] + hydra_args
+validate_logger_dependency(args_cli.logger)
 
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
@@ -39,7 +43,6 @@ simulation_app = app_launcher.app
 import os  # noqa: E402
 
 import gymnasium as gym  # noqa: E402
-import torch  # noqa: E402
 
 import unitree_dsc_lab  # noqa: E402, F401 — registers gym task
 
@@ -55,6 +58,8 @@ def main() -> None:
     device = args_cli.device if hasattr(args_cli, "device") else "cuda:0"
 
     runner_cfg = BasePPORunnerCfg()
+    log_dir = create_log_dir(args_cli.logdir, args_cli.task, "stage1", args_cli.run_name)
+    configure_runner_logging(runner_cfg, args_cli, log_dir)
     train_cfg = to_rsl_rl_dict(runner_cfg)
     print(f"[Stage 1] unitree_dsc_lab loaded from: {unitree_dsc_lab.__file__}")
     supported_model_keys = {"class_name", "hidden_dims", "activation", "obs_normalization", "distribution_cfg"}
@@ -73,10 +78,6 @@ def main() -> None:
     env = gym.make(args_cli.task, cfg=env_cfg)
     env = RslRlVecEnvWrapper(env, clip_actions=runner_cfg.clip_actions)
 
-    # Log directory
-    log_dir = os.path.join(args_cli.logdir, args_cli.task)
-    os.makedirs(log_dir, exist_ok=True)
-
     # Runner
     encoder = BEVStudentEncoder()
     runner = ThreeStagePPORunner(
@@ -87,20 +88,23 @@ def main() -> None:
         device=device,
     )
 
-    if args_cli.resume and args_cli.checkpoint:
-        runner.load(args_cli.checkpoint)
+    try:
+        if args_cli.resume and args_cli.checkpoint:
+            runner.load(args_cli.checkpoint)
 
-    runner.learn_stage1(args_cli.max_iterations)
+        runner.learn_stage1(args_cli.max_iterations)
 
-    # --- evaluate Stage-1 success rate (target > 0.85) ---
-    print("[Stage 1] Evaluating success rate …")
-    success_rate = runner.evaluate_success_rate(num_episodes=200)
-    print(f"[Stage 1] success_rate = {success_rate:.3f}  (target > 0.85)")
-    runner.save(os.path.join(log_dir, "model_final.pt"))
-    print(f"[Stage 1] Final checkpoint saved to {log_dir}/model_final.pt")
-
-    env.close()
-    simulation_app.close()
+        # --- evaluate Stage-1 success rate (target > 0.85) ---
+        print("[Stage 1] Evaluating success rate …")
+        success_rate = runner.evaluate_success_rate(num_episodes=200)
+        print(f"[Stage 1] success_rate = {success_rate:.3f}  (target > 0.85)")
+        if not runner.logger.disable_logs:
+            runner.save(os.path.join(log_dir, "model_final.pt"), upload=False)
+            print(f"[Stage 1] Final checkpoint saved to {log_dir}/model_final.pt")
+    finally:
+        runner.finish_logging()
+        env.close()
+        simulation_app.close()
 
 
 if __name__ == "__main__":

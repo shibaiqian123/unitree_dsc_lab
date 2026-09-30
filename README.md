@@ -83,13 +83,72 @@ List, train, play:
 
 See `scripts/stages/` and §12 of the replication guide.
 
+TensorBoard remains the default logger. To send the same run to Weights & Biases,
+authenticate once in the active environment (or provide the API key through the
+environment):
+
 ```bash
-python scripts/stages/train_stage1_policy.py     --max_iterations 6000 --num_envs 4096 --headless
-python scripts/stages/train_stage2_perception.py --policy_ckpt logs/stage1/best.pt --epochs 50
-python scripts/stages/train_stage3_joint.py      --resume_policy logs/stage1/best.pt \
-                                                 --resume_encoder logs/stage2/best.pt \
-                                                 --max_iterations 3000 --num_envs 2048
+wandb login
+# Non-interactive alternative:
+export WANDB_API_KEY="your-api-key"
+
+# Optional: select a W&B entity/team.
+export WANDB_USERNAME="your-entity"
 ```
+
+Then enable W&B explicitly for each stage. `--wandb_project` defaults to
+`unitree_dsc_lab`; `--run_name` is an optional, path-safe suffix:
+
+```bash
+TASK="Unitree-G1-29dof-Dex1-1-StairClimb-v0"
+PROJECT="unitree_dsc_lab"
+RUN_NAME="g1-stairs"
+
+# Stage 1: privileged-teacher PPO.
+python scripts/stages/train_stage1_policy.py \
+    --task "$TASK" --max_iterations 6000 --num_envs 4096 --headless \
+    --logger wandb --wandb_project "$PROJECT" --run_name "$RUN_NAME"
+
+# Use the exact Stage 1 path printed as "Logging run to".
+STAGE1_CKPT="logs/stage1/$TASK/YYYY-MM-DD_HH-MM-SS_stage1_${RUN_NAME}/model_final.pt"
+
+# Stage 2: supervised perception encoder.
+python scripts/stages/train_stage2_perception.py \
+    --task "$TASK" --policy_ckpt "$STAGE1_CKPT" --epochs 50 \
+    --logger wandb --wandb_project "$PROJECT" --run_name "$RUN_NAME" --headless
+
+# Use the exact Stage 2 path printed as "Logging run to".
+STAGE2_CKPT="logs/stage2/$TASK/YYYY-MM-DD_HH-MM-SS_stage2_${RUN_NAME}/encoder_best.pt"
+
+# Stage 3: joint policy and encoder fine-tuning.
+python scripts/stages/train_stage3_joint.py \
+    --task "$TASK" --resume_policy "$STAGE1_CKPT" \
+    --resume_encoder "$STAGE2_CKPT" \
+    --max_iterations 3000 --num_envs 2048 \
+    --logger wandb --wandb_project "$PROJECT" --run_name "$RUN_NAME" --headless
+```
+
+For a network-free run, set offline mode before launching a stage. The resulting
+run can be uploaded later with `wandb sync`:
+
+```bash
+export WANDB_MODE=offline
+```
+
+Every launch creates a unique directory (with `_02`, `_03`, and so on added on
+same-second collisions):
+
+```text
+logs/<stage>/<task>/<YYYY-MM-DD_HH-MM-SS>_<stage>[_<run_name>]/
+```
+
+The directory basename is also used as the W&B run name. Local TensorBoard event
+files are retained alongside checkpoints. Stage 1 writes periodic `model_<N>.pt`
+files and the `model_final.pt` convenience copy; Stage 2 writes
+`encoder_best.pt`; Stage 3 writes periodic and final `model_<N>.pt` checkpoints.
+Use the exact directory printed by the script when supplying a checkpoint to the
+next stage. Running without `--logger wandb` requires no W&B account or network
+connection.
 
 ## Deploy
 

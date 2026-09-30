@@ -17,6 +17,8 @@ from __future__ import annotations
 import argparse
 import sys
 
+from training_utils import add_logging_args, configure_runner_logging, create_log_dir, validate_logger_dependency
+
 # ---- 1. Parse args + launch Isaac Sim ----
 parser = argparse.ArgumentParser(description="Stage 3: joint PPO + encoder fine-tuning.")
 parser.add_argument("--task", type=str, default="Unitree-G1-23dof-StairClimb-v0")
@@ -28,19 +30,19 @@ parser.add_argument("--max_iterations", type=int, default=3000)
 parser.add_argument("--lr_scale", type=float, default=0.3, help="LR multiplier (paper ×0.3).")
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--logdir", type=str, default="logs/stage3")
+add_logging_args(parser)
 
 from isaaclab.app import AppLauncher  # noqa: E402
 
 AppLauncher.add_app_launcher_args(parser)
 args_cli, hydra_args = parser.parse_known_args()
 sys.argv = [sys.argv[0]] + hydra_args
+validate_logger_dependency(args_cli.logger)
 
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
 # ---- 2. Post-launch imports ----
-import os  # noqa: E402
-
 import gymnasium as gym  # noqa: E402
 
 import unitree_dsc_lab  # noqa: E402, F401 — registers gym task
@@ -57,6 +59,8 @@ def main() -> None:
     device = args_cli.device if hasattr(args_cli, "device") else "cuda:0"
 
     runner_cfg = BasePPORunnerCfg()
+    log_dir = create_log_dir(args_cli.logdir, args_cli.task, "stage3", args_cli.run_name)
+    configure_runner_logging(runner_cfg, args_cli, log_dir)
     train_cfg = to_rsl_rl_dict(runner_cfg)
 
     # Environment
@@ -64,9 +68,6 @@ def main() -> None:
     env_cfg.seed = args_cli.seed
     env = gym.make(args_cli.task, cfg=env_cfg)
     env = RslRlVecEnvWrapper(env, clip_actions=runner_cfg.clip_actions)
-
-    log_dir = os.path.join(args_cli.logdir, args_cli.task)
-    os.makedirs(log_dir, exist_ok=True)
 
     # Runner — load Stage 1 policy + Stage 2 encoder
     encoder = BEVStudentEncoder()
@@ -77,18 +78,20 @@ def main() -> None:
         log_dir=log_dir,
         device=device,
     )
-    # Policy weights from Stage 1
-    runner.load(args_cli.resume_policy, load_cfg={"actor": True, "critic": True, "optimizer": True})
-    # Encoder weights from Stage 2 (load_cfg=None also loads encoder_state_dict if present)
-    runner.load(args_cli.resume_encoder, load_cfg={"actor": False, "critic": False, "optimizer": False})
+    try:
+        # Policy weights from Stage 1
+        runner.load(args_cli.resume_policy, load_cfg={"actor": True, "critic": True, "optimizer": True})
+        # Encoder weights from Stage 2 (load_cfg=None also loads encoder_state_dict if present)
+        runner.load(args_cli.resume_encoder, load_cfg={"actor": False, "critic": False, "optimizer": False})
 
-    runner.learn_stage3(
-        num_iterations=args_cli.max_iterations,
-        lr_scale=args_cli.lr_scale,
-    )
-
-    env.close()
-    simulation_app.close()
+        runner.learn_stage3(
+            num_iterations=args_cli.max_iterations,
+            lr_scale=args_cli.lr_scale,
+        )
+    finally:
+        runner.finish_logging()
+        env.close()
+        simulation_app.close()
 
 
 if __name__ == "__main__":

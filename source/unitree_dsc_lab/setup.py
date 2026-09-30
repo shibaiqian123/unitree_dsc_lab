@@ -11,6 +11,7 @@ with open(os.path.join(EXTENSION_PATH, "config", "extension.toml"), "rb") as ext
 
 INSTALL_REQUIRES = [
     "psutil",
+    "wandb>=0.17",
 ]
 
 setup(

@@ -136,6 +136,10 @@ class ThreeStagePPORunner(OnPolicyRunner):
                 f"total={losses['total']:.4f}  cls={losses['cls']:.4f}  "
                 f"h={losses['h']:.4f}  d={losses['d']:.4f}  yaw={losses['yaw']:.4f}"
             )
+            if self.logger.writer is not None:
+                for loss_name, loss_value in losses.items():
+                    tag = f"terrain_{loss_name}"
+                    self.logger.writer.add_scalar(f"Loss/{tag}", loss_value, epoch)
 
         # Unfreeze PPO actor + critic
         for p in chain(self.alg.actor.parameters(), self.alg.critic.parameters()):
@@ -236,7 +240,7 @@ class ThreeStagePPORunner(OnPolicyRunner):
                     batch_size=max(256, bev_all.shape[0] // 4),
                     num_epochs=1,
                 )
-                loss_dict["terrain"] = perc["total"]
+                loss_dict["terrain_total"] = perc["total"]
                 loss_dict["terrain_cls"] = perc["cls"]
                 loss_dict["terrain_h"] = perc["h"]
                 loss_dict["terrain_d"] = perc["d"]
@@ -262,7 +266,7 @@ class ThreeStagePPORunner(OnPolicyRunner):
 
         if self.logger.writer is not None:
             self.save(os.path.join(self.logger.log_dir, f"model_{self.current_learning_iteration}.pt"))
-            self.logger.stop_logging_writer()
+            self.finish_logging()
 
     # -----------------------------------------------------------------------
     # Stage 1 evaluation
@@ -316,7 +320,7 @@ class ThreeStagePPORunner(OnPolicyRunner):
     # Checkpoint helpers (extend parent to include encoder)
     # -----------------------------------------------------------------------
 
-    def save(self, path: str, infos: dict | None = None) -> None:
+    def save(self, path: str, infos: dict | None = None, *, upload: bool = True) -> None:
         """Save PPO + encoder state to a single checkpoint file."""
         saved = self.alg.save()
         saved["iter"] = self.current_learning_iteration
@@ -324,7 +328,21 @@ class ThreeStagePPORunner(OnPolicyRunner):
         saved["encoder_state_dict"] = self.encoder.state_dict()
         saved["encoder_optimizer_state_dict"] = self.encoder_optimizer.state_dict()
         torch.save(saved, path)
-        self.logger.save_model(path, self.current_learning_iteration)
+        if upload:
+            self.logger.save_model(path, self.current_learning_iteration)
+
+    def finish_logging(self) -> None:
+        """Flush and close the active local or external logging writer."""
+        writer = getattr(self.logger, "writer", None)
+        if writer is None:
+            return
+        try:
+            writer.flush()
+            if self.logger.logger_type in {"wandb", "neptune"}:
+                self.logger.stop_logging_writer()
+        finally:
+            writer.close()
+            self.logger.writer = None
 
     def load(
         self,
