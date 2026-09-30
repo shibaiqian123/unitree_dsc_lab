@@ -24,6 +24,7 @@ parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--logdir", type=str, default="logs/stage1")
 parser.add_argument("--resume", action="store_true")
 parser.add_argument("--checkpoint", type=str, default=None)
+parser.add_argument("--disable_fabric", action="store_true", help="Disable Fabric for the simulation scene.")
 
 from isaaclab.app import AppLauncher  # noqa: E402
 

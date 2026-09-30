@@ -33,6 +33,7 @@ _ut_dsc_setup_conda_env() {
 
     # copied from isaaclab/_isaac_sim/setup_conda_env.sh
     # add source unitree_dsc_lab.sh to conda activate.d
+    mkdir -p "${CONDA_PREFIX}/etc/conda/activate.d"
     printf '%s\n' '#!/usr/bin/env bash' '' \
         '# for Isaac Lab' \
         'export ISAACLAB_PATH='${ISAACLAB_PATH}'' \
@@ -60,7 +61,11 @@ case "$1" in
         git lfs install
         pip install -e ${UNITREE_DSC_LAB_PATH}/source/unitree_dsc_lab/
         _ut_dsc_setup_conda_env
-        activate-global-python-argcomplete
+        if command -v activate-global-python-argcomplete >/dev/null 2>&1; then
+            activate-global-python-argcomplete
+        else
+            echo "[Warning] activate-global-python-argcomplete not found; skipping shell completion setup."
+        fi
         ;;
     -l|--list)
         shift

@@ -1,12 +1,13 @@
 """Installation script for the 'unitree_dsc_lab' python package."""
 
 import os
-import toml
+import tomllib
 
 from setuptools import setup
 
 EXTENSION_PATH = os.path.dirname(os.path.realpath(__file__))
-EXTENSION_TOML_DATA = toml.load(os.path.join(EXTENSION_PATH, "config", "extension.toml"))
+with open(os.path.join(EXTENSION_PATH, "config", "extension.toml"), "rb") as extension_file:
+    EXTENSION_TOML_DATA = tomllib.load(extension_file)
 
 INSTALL_REQUIRES = [
     "psutil",

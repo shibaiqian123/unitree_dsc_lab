@@ -22,6 +22,7 @@ import sys
 parser = argparse.ArgumentParser(description="Stage 2: supervised BEV encoder training.")
 parser.add_argument("--task", type=str, default="Unitree-G1-23dof-StairClimb-v0")
 parser.add_argument("--num_envs", type=int, default=1024)
+parser.add_argument("--disable_fabric", action="store_true", help="Disable Fabric for the simulation scene.")
 parser.add_argument("--policy_ckpt", type=str, required=True, help="Path to Stage 1 checkpoint.")
 parser.add_argument("--epochs", type=int, default=50)
 parser.add_argument("--batch_size", type=int, default=256)

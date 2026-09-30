@@ -21,6 +21,7 @@ import sys
 parser = argparse.ArgumentParser(description="Stage 3: joint PPO + encoder fine-tuning.")
 parser.add_argument("--task", type=str, default="Unitree-G1-23dof-StairClimb-v0")
 parser.add_argument("--num_envs", type=int, default=2048)
+parser.add_argument("--disable_fabric", action="store_true", help="Disable Fabric for the simulation scene.")
 parser.add_argument("--resume_policy", type=str, required=True, help="Stage 1 policy checkpoint.")
 parser.add_argument("--resume_encoder", type=str, required=True, help="Stage 2 encoder checkpoint.")
 parser.add_argument("--max_iterations", type=int, default=3000)
