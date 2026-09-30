@@ -90,3 +90,10 @@ class BasePPORunnerCfg(RslRlOnPolicyRunnerCfg):
         desired_kl=0.01,
         max_grad_norm=1.0,
     )
+
+
+@configclass
+class G129DofDex11PPORunnerCfg(BasePPORunnerCfg):
+    """PPO config with a separate log namespace for the 29-DoF task."""
+
+    experiment_name = "stair_climb_g1_29dof_dex1_1"

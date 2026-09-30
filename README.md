@@ -23,6 +23,7 @@ unitree_dsc_lab/
 │       │   ├── agents/                      # rsl_rl PPO runner configs
 │       │   ├── mdp/                         # observations, rewards, terminations, commands
 │       │   ├── robots/g1_23dof/             # env cfg + gym.register
+│       │   ├── robots/g1_29dof_dex1_1/      # 29-DoF G1 + Dex1-1 stair env
 │       │   ├── terrains/                    # procedural staircase generator
 │       │   ├── perception/                  # BEV builder, CNN student encoder, teacher
 │       │   └── policy/                      # actor-critic, three-stage runner
@@ -58,12 +59,17 @@ unitree_dsc_lab/
     to a checkout of [`unitree_ros`](https://github.com/unitreerobotics/unitree_ros), or
   - Set `UNITREE_MODEL_DIR` to a checkout of the
     [`unitree_model`](https://huggingface.co/datasets/unitreerobotics/unitree_model) USDs.
+- The `Unitree-G1-29dof-Dex1-1-StairClimb-v0` task additionally reads
+  `source/unitree_dsc_lab/unitree_dsc_lab/assets/robots/g1_description/` directly.
+  Keep its mode-15 URDF and referenced meshes available; these large mesh assets
+  are external source assets and are not included by the current wheel metadata.
 
 ## Tasks
 
 | Task ID                          | Stage  | Notes |
 |----------------------------------|--------|-------|
 | `Unitree-G1-23dof-StairClimb-v0` | 1/2/3  | PPO with explicit 4-D terrain token `z_t = [s_t, h_step, d_step, theta_yaw]` |
+| `Unitree-G1-29dof-Dex1-1-StairClimb-v0` | 1/2/3  | Local mode-15 URDF; 29 body joints are controlled, four Dex1-1 prismatic joints hold their default position |
 
 List, train, play:
 

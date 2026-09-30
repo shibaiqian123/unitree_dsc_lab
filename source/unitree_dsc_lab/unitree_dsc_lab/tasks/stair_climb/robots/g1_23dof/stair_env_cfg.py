@@ -29,10 +29,14 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sensors import ContactSensorCfg, RayCasterCfg
-from isaaclab.sensors.patterns import GridPatternCfg
 from isaaclab.terrains import TerrainImporterCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
+
+try:
+    from isaaclab.sensors.ray_caster.patterns import GridPatternCfg
+except ImportError:  # Isaac Lab <= 2.3
+    from isaaclab.sensors.patterns import GridPatternCfg
 
 from unitree_dsc_lab.assets.robots.unitree import G1_23DOF_CFG as ROBOT_CFG
 from unitree_dsc_lab.tasks.stair_climb import mdp
