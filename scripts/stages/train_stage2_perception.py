@@ -49,7 +49,7 @@ import unitree_dsc_lab  # noqa: E402, F401 — registers gym task
 from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper  # noqa: E402
 from isaaclab_tasks.utils import parse_env_cfg  # noqa: E402
 
-from unitree_dsc_lab.tasks.stair_climb.agents.rsl_rl_ppo_cfg import BasePPORunnerCfg  # noqa: E402
+from unitree_dsc_lab.tasks.stair_climb.agents.rsl_rl_ppo_cfg import BasePPORunnerCfg, to_rsl_rl_dict  # noqa: E402
 from unitree_dsc_lab.tasks.stair_climb.perception.encoder import BEVStudentEncoder  # noqa: E402
 from unitree_dsc_lab.tasks.stair_climb.policy.ppo_runner import ThreeStagePPORunner  # noqa: E402
 
@@ -57,11 +57,14 @@ from unitree_dsc_lab.tasks.stair_climb.policy.ppo_runner import ThreeStagePPORun
 def main() -> None:
     device = args_cli.device if hasattr(args_cli, "device") else "cuda:0"
 
+    runner_cfg = BasePPORunnerCfg()
+    train_cfg = to_rsl_rl_dict(runner_cfg)
+
     # Environment (same task, fewer envs for rollout collection)
     env_cfg = parse_env_cfg(args_cli.task, num_envs=args_cli.num_envs, use_fabric=not args_cli.disable_fabric)
     env_cfg.seed = args_cli.seed
     env = gym.make(args_cli.task, cfg=env_cfg)
-    env = RslRlVecEnvWrapper(env, clip_actions=BasePPORunnerCfg.clip_actions)
+    env = RslRlVecEnvWrapper(env, clip_actions=runner_cfg.clip_actions)
 
     log_dir = os.path.join(args_cli.logdir, args_cli.task)
     os.makedirs(log_dir, exist_ok=True)
@@ -70,7 +73,7 @@ def main() -> None:
     encoder = BEVStudentEncoder()
     runner = ThreeStagePPORunner(
         env,
-        BasePPORunnerCfg().to_dict(),
+        train_cfg,
         encoder,
         log_dir=log_dir,
         device=device,

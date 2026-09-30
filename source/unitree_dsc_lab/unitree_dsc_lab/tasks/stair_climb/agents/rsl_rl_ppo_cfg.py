@@ -22,6 +22,25 @@ from isaaclab_rl.rsl_rl import (
 )
 
 
+_MODEL_CFG_KEYS = {
+    "class_name",
+    "hidden_dims",
+    "activation",
+    "obs_normalization",
+    "distribution_cfg",
+}
+
+
+def to_rsl_rl_dict(cfg: RslRlOnPolicyRunnerCfg) -> dict:
+    """Serialize a runner config with only supported model arguments."""
+    train_cfg = cfg.to_dict()
+    for model_name in ("actor", "critic"):
+        model_cfg = train_cfg.get(model_name)
+        if isinstance(model_cfg, dict):
+            train_cfg[model_name] = {key: value for key, value in model_cfg.items() if key in _MODEL_CFG_KEYS}
+    return train_cfg
+
+
 _ACTOR_CRITIC_QUALNAME = (
     "unitree_dsc_lab.tasks.stair_climb.policy.actor_critic:StairClimbActorCritic"
 )
@@ -57,9 +76,6 @@ class BasePPORunnerCfg(RslRlOnPolicyRunnerCfg):
             init_std=1.0,
             std_type="scalar",
         ),
-        stochastic=True,
-        init_noise_std=1.0,
-        noise_std_type="scalar",
     )
 
     critic = RslRlMLPModelCfg(
@@ -68,9 +84,6 @@ class BasePPORunnerCfg(RslRlOnPolicyRunnerCfg):
         activation="elu",
         obs_normalization=True,
         distribution_cfg=None,
-        stochastic=False,
-        init_noise_std=1.0,
-        noise_std_type="scalar",
     )
 
     # Deprecated legacy field — required because `RslRlOnPolicyRunnerCfg.policy`
