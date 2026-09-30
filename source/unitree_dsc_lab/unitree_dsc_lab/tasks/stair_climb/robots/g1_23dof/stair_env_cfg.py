@@ -135,7 +135,7 @@ class CommandsCfg:
         heading_command=False,
         debug_vis=True,
         ranges=mdp.UniformVelocityCommandCfg.Ranges(
-            lin_vel_x=(0.0, 0.7),
+            lin_vel_x=(0.2, 0.7),
             lin_vel_y=(0.0, 0.0),
             ang_vel_z=(-0.2, 0.2),
         ),
