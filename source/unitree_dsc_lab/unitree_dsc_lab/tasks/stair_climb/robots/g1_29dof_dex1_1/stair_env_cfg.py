@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from isaaclab.assets import ArticulationCfg
 from isaaclab.managers import ObservationTermCfg as ObsTerm
+from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
@@ -26,6 +27,9 @@ from unitree_dsc_lab.tasks.stair_climb.robots.g1_23dof.stair_env_cfg import (
 )
 from unitree_dsc_lab.tasks.stair_climb.robots.g1_23dof.stair_env_cfg import (
     ObservationsCfg as BaseObservationsCfg,
+)
+from unitree_dsc_lab.tasks.stair_climb.robots.g1_23dof.stair_env_cfg import (
+    RewardsCfg as BaseRewardsCfg,
 )
 from unitree_dsc_lab.tasks.stair_climb.robots.g1_23dof.stair_env_cfg import (
     StairSceneCfg as BaseStairSceneCfg,
@@ -95,12 +99,33 @@ class ObservationsCfg(BaseObservationsCfg):
 
 
 @configclass
+class RewardsCfg(BaseRewardsCfg):
+    """Rewards using the shoulder, elbow, and wrist joints of the 29-DoF G1."""
+
+    joint_deviation_arms = RewTerm(
+        func=mdp.joint_deviation_l1,
+        weight=-0.1,
+        params={
+            "asset_cfg": SceneEntityCfg(
+                "robot",
+                joint_names=[
+                    ".*_shoulder_.*_joint",
+                    ".*_elbow_joint",
+                    ".*_wrist_.*_joint",
+                ],
+            ),
+        },
+    )
+
+
+@configclass
 class G129DofDex11StairClimbEnvCfg(BaseG1StairClimbEnvCfg):
     """Training config with a 29-dimensional locomotion action space."""
 
     scene: StairSceneCfg = StairSceneCfg(num_envs=4096, env_spacing=2.5)
     observations: ObservationsCfg = ObservationsCfg()
     actions: ActionsCfg = ActionsCfg()
+    rewards: RewardsCfg = RewardsCfg()
 
     def __post_init__(self) -> None:
         super().__post_init__()
