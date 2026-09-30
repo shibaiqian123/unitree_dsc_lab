@@ -74,7 +74,7 @@ class BasePPORunnerCfg(RslRlOnPolicyRunnerCfg):
         distribution_cfg=RslRlMLPModelCfg.GaussianDistributionCfg(
             class_name="GaussianDistribution",
             init_std=1.0,
-            std_type="scalar",
+            std_type="log",
         ),
     )
 

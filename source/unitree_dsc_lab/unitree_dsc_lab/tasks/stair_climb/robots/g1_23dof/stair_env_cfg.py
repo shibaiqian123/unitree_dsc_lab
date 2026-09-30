@@ -252,7 +252,7 @@ class RewardsCfg:
     # is therefore biased toward upcoming terrain. Acceptable for shaping but
     # consider a dedicated downward scanner under torso_link if this dominates.
     base_height = RewTerm(
-        func=mdp.base_height_l2,
+        func=mdp.base_height_l2_finite,
         weight=-1.0,
         params={
             "target_height": 0.78,

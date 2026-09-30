@@ -64,6 +64,8 @@ def main() -> None:
         if unsupported_keys:
             raise RuntimeError(f"Unsupported {model_name} config keys: {sorted(unsupported_keys)}")
         print(f"[Stage 1] {model_name} config keys: {sorted(model_keys)}")
+        if model_name == "actor":
+            print(f"[Stage 1] actor distribution config: {train_cfg[model_name].get('distribution_cfg')}")
 
     # Environment
     env_cfg = parse_env_cfg(args_cli.task, num_envs=args_cli.num_envs, use_fabric=not args_cli.disable_fabric)

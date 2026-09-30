@@ -36,6 +36,26 @@ CLASS_STAIRS_UP = 1
 CLASS_STAIRS_DOWN = 2
 
 
+def base_height_l2_finite(
+    env: "ManagerBasedRLEnv",
+    target_height: float,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    sensor_cfg: SceneEntityCfg = SceneEntityCfg("height_scanner"),
+) -> torch.Tensor:
+    """Penalize terrain-relative base height using only finite ray hits."""
+    asset = env.scene[asset_cfg.name]
+    sensor = env.scene[sensor_cfg.name]
+    hit_z = sensor.data.ray_hits_w[..., 2]
+    finite = torch.isfinite(hit_z)
+    finite_count = finite.sum(dim=1)
+    ground_z = torch.where(
+        finite_count > 0,
+        torch.where(finite, hit_z, 0.0).sum(dim=1) / finite_count.clamp_min(1),
+        asset.data.root_pos_w[:, 2] - target_height,
+    )
+    return torch.square(asset.data.root_pos_w[:, 2] - (target_height + ground_z))
+
+
 class swing_clearance_bonus(ManagerTermBase):
     """Reward foot apex height ``>= h_step + margin`` during stair-up.
 
@@ -197,4 +217,4 @@ class step_alignment_bonus(ManagerTermBase):
         return reward
 
 
-__all__ = ["swing_clearance_bonus", "step_alignment_bonus"]
+__all__ = ["base_height_l2_finite", "swing_clearance_bonus", "step_alignment_bonus"]
